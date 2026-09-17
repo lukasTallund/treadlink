@@ -258,6 +258,12 @@ esp_err_t rsc_server_start_advertising(void)
     adv_fields.uuids16_is_complete = 1;
     adv_fields.appearance = 0x0441;
     adv_fields.appearance_is_present = 1;
+    // Put the name in the primary advertising packet too (not just the scan
+    // response) — some centrals (e.g. Garmin) show a MAC-based fallback name
+    // during pairing if they don't pick it up from the scan response.
+    adv_fields.name = (uint8_t *)ble_svc_gap_device_name();
+    adv_fields.name_len = strlen(ble_svc_gap_device_name());
+    adv_fields.name_is_complete = 1;
 
     int rc = ble_gap_adv_set_fields(&adv_fields);
     if (rc != 0) {
