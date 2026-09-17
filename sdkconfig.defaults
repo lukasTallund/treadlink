@@ -1,3 +1,8 @@
+# Flash size — actual hardware is ESP32-S3-Nano (16MB flash), not the 8MB
+# the seeed_xiao_esp32s3 board manifest assumes
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+
 # BLE - NimBLE dual-role
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
