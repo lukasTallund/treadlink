@@ -113,13 +113,22 @@ void app_main(void)
     ESP_ERROR_CHECK(led_status_init());
     led_status_set(LED_STATE_NO_CONNECTION);
 
-    // WiFi
+    // WiFi — the radio itself only starts in the "_config" build
+    // (see platformio.ini). The normal day-to-day build never turns it on:
+    // WiFi/BLE coexistence measurably shortens the Garmin RSC connection's
+    // lifetime, and this device doesn't need WiFi except for occasional
+    // configuration (treadmill address, cadence tuning) via the web UI.
+    // wifi_manager_init() is kept unconditionally so the web UI still comes
+    // up (LWIP/httpd need it) — it just won't be reachable unless the radio
+    // is also on.
     wifi_manager_init();
+#ifdef TREADLINK_ENABLE_WIFI
     if (s_config.wifi_mode == 0) {
         wifi_manager_start_ap();
     } else {
         wifi_manager_start_sta(s_config.wifi_ssid, s_config.wifi_pass);
     }
+#endif
     vTaskDelay(pdMS_TO_TICKS(100)); // brief settle for WiFi AP
 
     // Web server
