@@ -75,11 +75,18 @@ static void on_treadmill_connection(bool connected)
     restart_rsc_adv_if_needed();
 }
 
+// Don't let treadmill BLE central activity (which monopolizes the radio)
+// knock out a live Garmin link, and don't run it at all when the UART
+// bridge is already supplying treadmill data — there's nothing to gain
+// from also chasing an FTMS connection in that case.
+static void update_ftms_pause_state(void)
+{
+    ftms_client_pause_reconnect(rsc_server_is_connected() || uart_bridge_is_active());
+}
+
 static void on_garmin_connection(bool connected)
 {
-    // Don't let treadmill reconnect attempts (which briefly monopolize the
-    // radio) knock out a live Garmin link.
-    ftms_client_pause_reconnect(connected);
+    update_ftms_pause_state();
     update_led_state();
     web_server_set_connection_status(ftms_client_is_connected(), rsc_server_is_connected());
 }
@@ -96,6 +103,7 @@ static void watchdog_task(void *arg)
         esp_task_wdt_reset();
         update_led_state();
         restart_rsc_adv_if_needed();
+        update_ftms_pause_state();
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }

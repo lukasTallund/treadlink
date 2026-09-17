@@ -21,3 +21,6 @@
 typedef void (*uart_bridge_data_cb_t)(const ftms_treadmill_data_t *data);
 
 esp_err_t uart_bridge_init(uart_bridge_data_cb_t data_cb);
+
+// True if a valid frame arrived within the last few seconds.
+bool uart_bridge_is_active(void);

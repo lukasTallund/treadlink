@@ -1,6 +1,7 @@
 #include "uart_bridge.h"
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <stdio.h>
@@ -19,7 +20,13 @@ static const char *TAG = "uart_bridge";
 
 #define LINE_MAX_LEN 48
 
+// Sender frame period is 700ms — anything under a few missed frames counts
+// as "still active" so a single dropped byte doesn't flap the BLE central
+// pause on and off.
+#define ACTIVE_TIMEOUT_US (3 * 1000 * 1000)
+
 static uart_bridge_data_cb_t s_data_cb;
+static volatile int64_t s_last_frame_us;
 
 static void handle_line(const char *line)
 {
@@ -38,6 +45,8 @@ static void handle_line(const char *line)
         .has_incline = (flags & 0x1) != 0,
         .has_distance = (flags & 0x2) != 0,
     };
+
+    s_last_frame_us = esp_timer_get_time();
 
     if (s_data_cb) {
         s_data_cb(&ftms);
@@ -115,4 +124,10 @@ esp_err_t uart_bridge_init(uart_bridge_data_cb_t data_cb)
 
     ESP_LOGI(TAG, "UART bridge listening on RX=GPIO%d @ %d baud", UART_RX_PIN, UART_BAUD);
     return ESP_OK;
+}
+
+bool uart_bridge_is_active(void)
+{
+    if (s_last_frame_us == 0) return false; // never received a frame
+    return (esp_timer_get_time() - s_last_frame_us) < ACTIVE_TIMEOUT_US;
 }
