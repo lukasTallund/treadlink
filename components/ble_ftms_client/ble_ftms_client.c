@@ -555,8 +555,24 @@ esp_err_t ftms_client_connect(const uint8_t addr[6], uint8_t addr_type)
     s_saved_addr_type = addr_type;
     s_should_reconnect = true;
 
+    // Default init scan params (scan_itvl=window=0x0010) scan at 100% duty
+    // cycle for the whole connect attempt, which starves the radio time the
+    // RSC peripheral link (Garmin) needs for its connection events and can
+    // knock it out with a supervision timeout. Use a 50% duty cycle instead —
+    // still finds the treadmill quickly, but leaves room for the Garmin link.
+    struct ble_gap_conn_params conn_params = {
+        .scan_itvl = 0x0060,        // 60ms
+        .scan_window = 0x0030,      // 30ms (50% duty)
+        .itvl_min = BLE_GAP_INITIAL_CONN_ITVL_MIN,
+        .itvl_max = BLE_GAP_INITIAL_CONN_ITVL_MAX,
+        .latency = BLE_GAP_INITIAL_CONN_LATENCY,
+        .supervision_timeout = BLE_GAP_INITIAL_SUPERVISION_TIMEOUT,
+        .min_ce_len = BLE_GAP_INITIAL_CONN_MIN_CE_LEN,
+        .max_ce_len = BLE_GAP_INITIAL_CONN_MAX_CE_LEN,
+    };
+
     int rc = ble_gap_connect(BLE_OWN_ADDR_PUBLIC, &peer_addr, 3000,
-                              NULL, ftms_gap_event, NULL);
+                              &conn_params, ftms_gap_event, NULL);
     if (rc != 0) {
         ESP_LOGE(TAG, "Connect failed: %d", rc);
         set_state(FTMS_STATE_IDLE);
