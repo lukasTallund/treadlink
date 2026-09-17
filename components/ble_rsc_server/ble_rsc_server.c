@@ -237,6 +237,13 @@ esp_err_t rsc_server_init(rsc_conn_cb_t conn_cb, rsc_log_cb_t log_cb)
 
 esp_err_t rsc_server_start_advertising(void)
 {
+    if (ble_gap_adv_active()) {
+        // Already advertising — rebuilding/restarting now would race with
+        // NimBLE's own internal re-advertise-on-failure logic (seen as
+        // spurious "Adv reattempt failed" errors) for no benefit.
+        return ESP_OK;
+    }
+
     struct ble_gap_adv_params adv_params = {
         .conn_mode = BLE_GAP_CONN_MODE_UND,
         .disc_mode = BLE_GAP_DISC_MODE_GEN,
