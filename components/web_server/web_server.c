@@ -2,6 +2,7 @@
 #include "config_store.h"
 #include "data_bridge.h"
 #include "ble_ftms_client.h"
+#include "host/ble_store.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -322,6 +323,24 @@ static esp_err_t handler_disconnect(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t handler_ble_forget(httpd_req_t *req)
+{
+    // Clears NimBLE's bond store only (LTKs/IRKs/CCCDs) — leaves WiFi
+    // credentials and app config untouched. Use after re-pairing a peer
+    // (e.g. Garmin) so no stale bond/identity entry lingers on our side.
+    int rc = ble_store_clear();
+    httpd_resp_set_type(req, "application/json");
+    if (rc == 0) {
+        web_log('W', "BLE bonds cleared — re-pair all peers");
+        httpd_resp_sendstr(req, "{\"status\":\"cleared\"}");
+    } else {
+        web_log('E', "BLE bond clear failed: %d", rc);
+        httpd_resp_set_status(req, "500 Internal Server Error");
+        httpd_resp_sendstr(req, "{\"error\":\"clear_failed\"}");
+    }
+    return ESP_OK;
+}
+
 static esp_err_t handler_config_get(httpd_req_t *req)
 {
     treadlink_config_t config;
@@ -576,6 +595,9 @@ static const httpd_uri_t uri_connect = {
 static const httpd_uri_t uri_disconnect = {
     .uri = "/api/disconnect", .method = HTTP_POST, .handler = handler_disconnect
 };
+static const httpd_uri_t uri_ble_forget = {
+    .uri = "/api/ble_forget", .method = HTTP_POST, .handler = handler_ble_forget
+};
 static const httpd_uri_t uri_config_get = {
     .uri = "/api/config", .method = HTTP_GET, .handler = handler_config_get
 };
@@ -633,6 +655,7 @@ esp_err_t web_server_start(void)
     httpd_register_uri_handler(server, &uri_scan_results);
     httpd_register_uri_handler(server, &uri_connect);
     httpd_register_uri_handler(server, &uri_disconnect);
+    httpd_register_uri_handler(server, &uri_ble_forget);
     httpd_register_uri_handler(server, &uri_config_get);
     httpd_register_uri_handler(server, &uri_config_post);
     httpd_register_uri_handler(server, &uri_control);
