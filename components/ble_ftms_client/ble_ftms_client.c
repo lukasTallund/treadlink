@@ -598,9 +598,13 @@ void ftms_client_pause_reconnect(bool pause)
 {
     s_reconnect_paused = pause;
     if (!pause && s_state == FTMS_STATE_RECONNECTING) {
-        // Clear to retry now — kick the reconnect loop right away instead
-        // of waiting out whatever backoff/recheck delay is left.
-        xTimerChangePeriod(s_reconnect_timer, pdMS_TO_TICKS(100), 0);
+        // Garmin often reconnects on its own within ~1s of dropping. Kicking
+        // off a 3s treadmill connect attempt immediately raced that
+        // reconnection and collided with it mid-handshake (seen as
+        // encryption failing with ENOTCONN right as the link died again).
+        // Give Garmin the same head start as a real disconnect gets
+        // (RECONNECT_FAST_MS) before contending for radio time again.
+        xTimerChangePeriod(s_reconnect_timer, pdMS_TO_TICKS(RECONNECT_FAST_MS), 0);
         xTimerStart(s_reconnect_timer, 0);
     }
 }
