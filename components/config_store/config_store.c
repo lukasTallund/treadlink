@@ -13,7 +13,11 @@ esp_err_t config_store_init(void)
 {
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_LOGW(TAG, "NVS partition issue, erasing...");
+        // This wipes the WHOLE nvs partition — app config, WiFi credentials,
+        // AND BLE bond keys (NimBLE's store lives in the same partition).
+        // Garmin/other peers will need to be re-paired after this.
+        ESP_LOGE(TAG, "NVS partition issue (err=%d) — erasing entire NVS "
+                 "partition (config, WiFi credentials, BLE bonds all lost)", err);
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
