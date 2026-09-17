@@ -76,6 +76,9 @@ static void on_treadmill_connection(bool connected)
 
 static void on_garmin_connection(bool connected)
 {
+    // Don't let treadmill reconnect attempts (which briefly monopolize the
+    // radio) knock out a live Garmin link.
+    ftms_client_pause_reconnect(connected);
     update_led_state();
     web_server_set_connection_status(ftms_client_is_connected(), rsc_server_is_connected());
 }

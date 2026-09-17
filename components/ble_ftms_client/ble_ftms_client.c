@@ -53,6 +53,8 @@ static bool s_should_reconnect;
 static uint32_t s_reconnect_delay_ms;
 static uint16_t s_reconnect_attempts;
 static bool s_had_working_connection; // true if we were streaming before disconnect
+static volatile bool s_reconnect_paused; // true while an RSC (Garmin) link is active
+#define RECONNECT_PAUSE_RECHECK_MS 5000
 #define RECONNECT_FAST_MS     2000    // first attempt after real disconnect
 #define RECONNECT_INITIAL_MS  5000    // first attempt after failed connect
 #define RECONNECT_MAX_MS      60000
@@ -265,6 +267,13 @@ static void reconnect_task(void *arg)
     while (1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         if (s_should_reconnect && s_state == FTMS_STATE_RECONNECTING) {
+            if (s_reconnect_paused) {
+                // A Garmin session is active — a connect attempt's radio time
+                // would risk knocking that link out. Defer and recheck soon.
+                xTimerChangePeriod(s_reconnect_timer, pdMS_TO_TICKS(RECONNECT_PAUSE_RECHECK_MS), 0);
+                xTimerStart(s_reconnect_timer, 0);
+                continue;
+            }
             ESP_LOGI(TAG, "Attempting reconnection (attempt %d)...", s_reconnect_attempts + 1);
             if (s_web_log_fn) {
                 s_web_log_fn('I', "Reconnecting to treadmill (attempt %d)...", s_reconnect_attempts + 1);
@@ -479,6 +488,7 @@ esp_err_t ftms_client_init(ftms_data_cb_t data_cb, ftms_conn_cb_t conn_cb)
     s_reconnect_delay_ms = RECONNECT_INITIAL_MS;
     s_reconnect_attempts = 0;
     s_had_working_connection = false;
+    s_reconnect_paused = false;
 
     s_reconnect_timer = xTimerCreate("ftms_recon", pdMS_TO_TICKS(RECONNECT_INITIAL_MS),
                                       pdFALSE, NULL, reconnect_timer_cb);
@@ -582,6 +592,17 @@ esp_err_t ftms_client_connect(const uint8_t addr[6], uint8_t addr_type)
     ESP_LOGI(TAG, "Connecting to %02X:%02X:%02X:%02X:%02X:%02X...",
              addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
     return ESP_OK;
+}
+
+void ftms_client_pause_reconnect(bool pause)
+{
+    s_reconnect_paused = pause;
+    if (!pause && s_state == FTMS_STATE_RECONNECTING) {
+        // Clear to retry now — kick the reconnect loop right away instead
+        // of waiting out whatever backoff/recheck delay is left.
+        xTimerChangePeriod(s_reconnect_timer, pdMS_TO_TICKS(100), 0);
+        xTimerStart(s_reconnect_timer, 0);
+    }
 }
 
 esp_err_t ftms_client_disconnect(void)

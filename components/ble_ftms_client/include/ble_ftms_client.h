@@ -38,6 +38,11 @@ esp_err_t ftms_client_disconnect(void);
 bool ftms_client_is_connected(void);
 ftms_state_t ftms_client_get_state(void);
 
+// Pause/resume automatic reconnection attempts. Used to avoid the BLE
+// radio contention that a connect attempt causes on an active RSC
+// (Garmin) link — call with true while that link is up.
+void ftms_client_pause_reconnect(bool pause);
+
 const ftms_scan_result_t *ftms_client_get_scan_results(uint8_t *count);
 void ftms_client_clear_scan_results(void);
 uint16_t ftms_client_get_reconnect_attempts(void);
