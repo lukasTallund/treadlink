@@ -141,7 +141,13 @@ static int rsc_gap_event(struct ble_gap_event *event, void *arg)
         if (event->connect.status == 0) {
             s_conn_handle = event->connect.conn_handle;
             s_connected = true;
-            s_notifications_enabled = false;
+            // Don't reset s_notifications_enabled here: on a bonded
+            // reconnect, NimBLE can restore the peer's CCCD subscription
+            // (BLE_GAP_EVENT_SUBSCRIBE, reason=RESTORE) before this CONNECT
+            // event finishes processing. Clobbering it back to false here
+            // silently broke notify for the rest of that session — the
+            // DISCONNECT handler already resets it to false, so a genuinely
+            // fresh connection starts unsubscribed regardless.
             ESP_LOGI(TAG, "Garmin connected (handle=%d)", s_conn_handle);
             rsc_log('I', "Garmin connected");
             if (s_conn_cb) s_conn_cb(true);
