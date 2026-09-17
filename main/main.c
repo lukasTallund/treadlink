@@ -12,6 +12,7 @@
 #include "data_bridge.h"
 #include "wifi_manager.h"
 #include "web_server.h"
+#include "uart_bridge.h"
 
 static const char *TAG = "treadlink";
 
@@ -145,6 +146,12 @@ void app_main(void)
     ble_common_start();
     vTaskDelay(pdMS_TO_TICKS(200)); // wait for NimBLE host sync
     rsc_server_start_advertising();
+
+    // UART bridge — alternative treadmill data source (from the companion
+    // ESPHome-Treadmill-FTMS ESP32, over a wire) that avoids running BLE
+    // FTMS central at all. Independent of the BLE auto-connect below; both
+    // feed the same on_treadmill_data() callback.
+    ESP_ERROR_CHECK(uart_bridge_init(on_treadmill_data));
 
     // Auto-connect to saved treadmill
     if (s_config.auto_connect && s_config.treadmill_addr[0] != '\0') {
