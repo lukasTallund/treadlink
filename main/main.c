@@ -147,7 +147,7 @@ void app_main(void)
     }
 
     // Watchdog task — monitors system health
-    xTaskCreate(watchdog_task, "watchdog", 2048, NULL, 1, NULL);
+    xTaskCreate(watchdog_task, "watchdog", 6144, NULL, 1, NULL);
 
     web_log('I', "TreadLink ready");
     ESP_LOGI(TAG, "TreadLink ready!");

@@ -485,7 +485,7 @@ esp_err_t ftms_client_init(ftms_data_cb_t data_cb, ftms_conn_cb_t conn_cb)
     s_discovery_timer = xTimerCreate("ftms_disc", pdMS_TO_TICKS(DISCOVERY_TIMEOUT_MS),
                                       pdFALSE, NULL, discovery_timeout_cb);
 
-    xTaskCreate(reconnect_task, "ftms_recon", 3072, NULL, 5, &s_reconnect_task_handle);
+    xTaskCreate(reconnect_task, "ftms_recon", 6144, NULL, 5, &s_reconnect_task_handle);
 
     ESP_LOGI(TAG, "FTMS client initialized");
     return ESP_OK;
