@@ -142,9 +142,11 @@ static int rsc_gap_event(struct ble_gap_event *event, void *arg)
             s_conn_handle = event->connect.conn_handle;
             s_connected = true;
             s_notifications_enabled = false;
+            ESP_LOGI(TAG, "Garmin connected (handle=%d)", s_conn_handle);
             rsc_log('I', "Garmin connected");
             if (s_conn_cb) s_conn_cb(true);
         } else {
+            ESP_LOGW(TAG, "Garmin connect attempt failed: status=%d", event->connect.status);
             rsc_server_start_advertising();
         }
         break;
@@ -160,6 +162,8 @@ static int rsc_gap_event(struct ble_gap_event *event, void *arg)
             case 0x06: reason_str = "key missing"; break;
             case 0x22: reason_str = "LL timeout"; break;
         }
+        ESP_LOGW(TAG, "Garmin disconnected (handle=%d, reason=0x%02X: %s)",
+                 s_conn_handle, reason, reason_str);
         rsc_log('W', "Garmin disconnected (0x%02X: %s)", reason, reason_str);
         s_connected = false;
         s_notifications_enabled = false;
@@ -172,12 +176,16 @@ static int rsc_gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_SUBSCRIBE:
         if (event->subscribe.attr_handle == s_rsc_measurement_handle) {
             s_notifications_enabled = event->subscribe.cur_notify;
+            ESP_LOGI(TAG, "Garmin %s RSC notifications (reason=%d)",
+                     event->subscribe.cur_notify ? "enabled" : "disabled",
+                     event->subscribe.reason);
             rsc_log('I', "Garmin %s RSC notifications",
                     event->subscribe.cur_notify ? "enabled" : "disabled");
         }
         break;
 
     case BLE_GAP_EVENT_ENC_CHANGE:
+        ESP_LOGI(TAG, "Encryption change: status=%d", event->enc_change.status);
         if (event->enc_change.status != 0) {
             rsc_log('E', "Encryption failed (status=%d)", event->enc_change.status);
         }
@@ -193,6 +201,7 @@ static int rsc_gap_event(struct ble_gap_event *event, void *arg)
         break;
 
     case BLE_GAP_EVENT_REPEAT_PAIRING: {
+        ESP_LOGW(TAG, "Peer already bonded but re-pairing — deleting old bond and retrying");
         struct ble_gap_conn_desc desc;
         int rc = ble_gap_conn_find(event->repeat_pairing.conn_handle, &desc);
         if (rc == 0) {
