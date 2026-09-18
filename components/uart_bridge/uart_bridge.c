@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static const char *TAG = "uart_bridge";
@@ -27,6 +28,7 @@ static const char *TAG = "uart_bridge";
 
 static uart_bridge_data_cb_t s_data_cb;
 static volatile int64_t s_last_frame_us;
+static bool s_was_active;
 
 static void handle_line(const char *line)
 {
@@ -48,6 +50,13 @@ static void handle_line(const char *line)
 
     s_last_frame_us = esp_timer_get_time();
 
+    if (!s_was_active) {
+        s_was_active = true;
+        ESP_LOGI(TAG, "UART data flowing (speed=%d.%02u km/h incline=%d.%d%% dist=%dm)",
+                 speed_001kmh / 100, speed_001kmh % 100,
+                 incline_01pct / 10, abs(incline_01pct % 10), distance_m);
+    }
+
     if (s_data_cb) {
         s_data_cb(&ftms);
     }
@@ -61,6 +70,12 @@ static void uart_bridge_task(void *arg)
 
     while (1) {
         int n = uart_read_bytes(UART_PORT, &byte, 1, pdMS_TO_TICKS(1000));
+
+        if (s_was_active && !uart_bridge_is_active()) {
+            s_was_active = false;
+            ESP_LOGW(TAG, "UART data stopped");
+        }
+
         if (n <= 0) continue;
 
         if (byte == '\n') {
