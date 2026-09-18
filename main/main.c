@@ -161,7 +161,11 @@ void app_main(void)
     // feed the same on_treadmill_data() callback.
     ESP_ERROR_CHECK(uart_bridge_init(on_treadmill_data));
 
-    // Auto-connect to saved treadmill
+    // Auto-connect to saved treadmill — off by default while UART is the
+    // active data source, to keep BLE central out of the picture entirely
+    // during troubleshooting (one fewer variable). ftms_client_init() above
+    // still runs unconditionally so pause/state queries stay safe to call.
+#ifdef TREADLINK_ENABLE_FTMS_CENTRAL
     if (s_config.auto_connect && s_config.treadmill_addr[0] != '\0') {
         uint8_t addr[6];
         unsigned int a[6];
@@ -172,6 +176,7 @@ void app_main(void)
             ftms_client_connect(addr, s_config.treadmill_addr_type);
         }
     }
+#endif
 
     // Watchdog task — monitors system health
     xTaskCreate(watchdog_task, "watchdog", 6144, NULL, 1, NULL);
